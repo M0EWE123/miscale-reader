@@ -89,9 +89,9 @@ def parse_body_composition(data: bytes, mac: str) -> Reading | None:
 
     unit_byte = data[0]
     if unit_byte & 0x01:
-        unit, div = "jin", 100.0
-    elif unit_byte & 0x02:
         unit, div = "lbs", 100.0
+    elif unit_byte & 0x10:
+        unit, div = "jin", 100.0
     else:
         unit, div = "kg", 200.0  # Standard; in Zepp Life auf kg stellen
     weight = _u16(data[11:13]) / div
