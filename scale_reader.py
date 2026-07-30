@@ -41,6 +41,11 @@ log = logging.getLogger("miscale")
 LB_TO_KG = 0.45359237
 JIN_TO_KG = 0.5
 
+# Bump this string on every change to scale_reader.py -- logged loudly at
+# startup so a redeploy can be confirmed from the container logs alone,
+# without guessing whether the image was actually rebuilt from fresh code.
+BUILD_TAG = "unitfix-2026-07-30-01"
+
 
 @dataclass
 class Reading:
@@ -201,6 +206,7 @@ async def retry_loop(store: Store, client: httpx.AsyncClient):
 
 
 async def main():
+    log.warning("=== scale_reader BUILD_TAG=%s ===", BUILD_TAG)
     if not WEBHOOK_URL:
         log.warning("Kein WEBHOOK_URL gesetzt - Messungen werden nur lokal gespeichert.")
     if not SCALE_MAC:
