@@ -1,0 +1,19 @@
+services:
+  miscale:
+    build: .
+    container_name: miscale-reader
+    restart: unless-stopped
+    network_mode: host                    # BLE-Scan ueber Host-BlueZ
+    # privileged: true                    # bei D-Bus-/BlueZ-Fehlern einkommentieren
+    volumes:
+      - /var/run/dbus:/var/run/dbus       # D-Bus zum Host-bluetoothd
+      - miscale-data:/data                # SQLite-Persistenz
+    environment:
+      SCALE_MAC: "${SCALE_MAC}"
+      WEBHOOK_URL: "${WEBHOOK_URL}"
+      WEBHOOK_TOKEN: "${WEBHOOK_TOKEN}"
+      DB_PATH: /data/readings.db
+      LOG_LEVEL: INFO
+
+volumes:
+  miscale-data:
