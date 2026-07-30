@@ -44,7 +44,7 @@ JIN_TO_KG = 0.5
 # Bump this string on every change to scale_reader.py -- logged loudly at
 # startup so a redeploy can be confirmed from the container logs alone,
 # without guessing whether the image was actually rebuilt from fresh code.
-BUILD_TAG = "unitfix-2026-07-30-01"
+BUILD_TAG = "impedance-upgrade-2026-07-30-01"
 
 
 @dataclass
@@ -214,7 +214,7 @@ async def main():
 
     store = Store(DB_PATH)
     queue: asyncio.Queue[Reading] = asyncio.Queue()
-    last_emit: dict[str, tuple[float, float]] = {}  # mac -> (ts, weight_kg)
+    last_emit: dict[str, tuple[float, float, bool]] = {}  # mac -> (ts, weight_kg, had_impedance)
 
     def on_adv(device: BLEDevice, adv: AdvertisementData):
         mac = (device.address or "").upper()
@@ -232,9 +232,16 @@ async def main():
 
         now = asyncio.get_event_loop().time()
         prev = last_emit.get(mac)
-        if prev and (now - prev[0]) < EMIT_COOLDOWN_S and abs(r.weight_kg - prev[1]) < WEIGHT_EPS:
+        is_dup = prev and (now - prev[0]) < EMIT_COOLDOWN_S and abs(r.weight_kg - prev[1]) < WEIGHT_EPS
+        # Gewicht stabilisiert oft VOR der Impedanz -- die Waage broadcastet dann
+        # kurz danach nochmal mit stabiler Impedanz nach. So eine Nachlieferung
+        # ist trotz gleichem Gewicht keine reine Dauer-Broadcast-Wiederholung,
+        # sondern eine bessere Messung -> Dedup-Sperre hier durchbrechen lassen,
+        # sonst geht die Impedanz für immer verloren (siehe last_emit[2]).
+        is_upgrade = r.impedance is not None and prev is not None and not prev[2]
+        if is_dup and not is_upgrade:
             return  # gleiche Messung, Dauer-Broadcast -> unterdruecken
-        last_emit[mac] = (now, r.weight_kg)
+        last_emit[mac] = (now, r.weight_kg, r.impedance is not None)
         queue.put_nowait(r)
 
     async with httpx.AsyncClient() as client:
